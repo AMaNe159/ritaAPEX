@@ -426,8 +426,15 @@
     </div>
 
     <script>
-        // Googleスプレッドシートの公開URL
+        // Googleスプレッドシートの公開URL（CORSプロキシ経由）
         const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQS9qgXtdl5gSYj6e0Zvd0xaOszl7OBDHP_Rn4wJJLrWFiL06gMf1DIbaB-VSgcZo-UYVXIqCDkzKcx/pub?output=csv';
+        
+        // 複数のCORSプロキシオプション
+        const CORS_PROXIES = [
+            'https://api.allorigins.win/raw?url=',
+            'https://corsproxy.io/?',
+            'https://cors-anywhere.herokuapp.com/'
+        ];
         
         let currentData = [];
 
@@ -443,12 +450,42 @@
             statusEl.style.display = 'none';
             
             try {
-                const response = await fetch(SPREADSHEET_URL);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                // 複数のプロキシを順番に試す
+                let csvData = null;
+                let lastError = null;
+                
+                // まず直接アクセスを試す
+                try {
+                    const response = await fetch(SPREADSHEET_URL);
+                    if (response.ok) {
+                        csvData = await response.text();
+                    }
+                } catch (error) {
+                    console.warn('直接アクセスに失敗、プロキシを試します:', error);
                 }
                 
-                const csvData = await response.text();
+                // 直接アクセスが失敗した場合、プロキシを試す
+                if (!csvData) {
+                    for (const proxy of CORS_PROXIES) {
+                        try {
+                            const proxyUrl = proxy + encodeURIComponent(SPREADSHEET_URL);
+                            const response = await fetch(proxyUrl);
+                            
+                            if (response.ok) {
+                                csvData = await response.text();
+                                break;
+                            }
+                        } catch (error) {
+                            lastError = error;
+                            console.warn(`プロキシ ${proxy} での取得に失敗:`, error);
+                        }
+                    }
+                }
+                
+                if (!csvData) {
+                    throw new Error(`データの取得に失敗しました。CORSエラーが発生している可能性があります。: ${lastError?.message || '不明なエラー'}`);
+                }
+                
                 const data = parseCSVData(csvData);
                 
                 if (data.length === 0) {
@@ -474,7 +511,14 @@
                 
             } catch (error) {
                 console.error('データの読み込みに失敗しました:', error);
-                errorEl.textContent = `データの読み込みに失敗しました: ${error.message}`;
+                
+                let errorMessage = `データの読み込みに失敗しました: ${error.message}`;
+                
+                if (error.message.includes('CORS') || error.message.includes('fetch')) {
+                    errorMessage += '\n\n解決方法:\n1. スプレッドシートが正しく公開されているか確認してください\n2. ブラウザを更新してもう一度お試しください\n3. 別のブラウザでお試しください';
+                }
+                
+                errorEl.innerHTML = errorMessage.replace(/\n/g, '<br>');
                 errorEl.style.display = 'block';
                 loadingEl.style.display = 'none';
                 
