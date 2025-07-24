@@ -144,7 +144,13 @@
         }
 
         .kills { color: #e74c3c; }
-        .points { color: #27ae60; }
+        .points { 
+            color: #27ae60; 
+        }
+        
+        .points.negative {
+            color: #e74c3c;
+        }
 
         .medal {
             margin-right: 10px;
@@ -297,20 +303,52 @@
     </div>
 
     <script>
+        // 公開用URLに変更してください
         const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQS9qgXtdl5gSYj6e0Zvd0xaOszl7OBDHP_Rn4wJJLrWFiL06gMf1DIbaB-VSgcZo-UYVXIqCDkzKcx/pubhtml?gid=80247148&single=true';
+        
+        // 現在のデータ（デモ用）
+        const DEMO_DATA = [
+            { name: 'キルポください', kills: 1, points: 13, rank: 1 },
+            { name: 'くっきーもんすたー', kills: 1, points: 8, rank: 2 },
+            { name: 'The fastest love', kills: 1, points: 7, rank: 3 },
+            { name: 'チョコレート食べたい', kills: 1, points: 6, rank: 4 },
+            { name: 'ふんばり温泉チーム', kills: 1, points: 6, rank: 4 },
+            { name: 'un poco', kills: 1.5, points: 5.5, rank: 6 },
+            { name: '吾輩は猫である', kills: 1, points: 5, rank: 7 },
+            { name: 'リるまるち！', kills: 1, points: 3, rank: 8 },
+            { name: '(株)やんやんチキ坊', kills: 1, points: 3, rank: 8 },
+            { name: 'NOXチーム', kills: 1, points: 3, rank: 8 },
+            { name: 'シロノワール', kills: 1, points: 3, rank: 8 },
+            { name: 'HELLHOUNDS', kills: 1, points: 2, rank: 12 },
+            { name: 'General passage', kills: 1, points: 2, rank: 12 },
+            { name: '破壊殺・空式 もに座', kills: 1, points: 2, rank: 12 },
+            { name: 'Void Runners', kills: 1, points: 2, rank: 12 },
+            { name: 'ネーどるパンツァー', kills: 1, points: 1, rank: 16 },
+            { name: 'ねっぺいとKP!', kills: 1, points: 0, rank: 17 },
+            { name: 'リトル ゲーム部', kills: 1, points: -1, rank: 18 },
+            { name: '推しに引きずられ隊', kills: 1, points: -5, rank: 19 },
+            { name: '運営', kills: 1, points: -7, rank: 20 }
+        ];
         
         async function fetchData() {
             try {
+                // まずは公開URLからの取得を試行
                 const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL)}`);
                 const data = await response.json();
                 return data.contents;
             } catch (error) {
-                console.error('データの取得に失敗しました:', error);
+                console.error('データの取得に失敗しました。デモデータを使用します:', error);
+                // 公開URLが設定されていない場合はデモデータを返す
                 return null;
             }
         }
 
         function parseData(html) {
+            if (!html) {
+                // デモデータを使用
+                return DEMO_DATA;
+            }
+            
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
             const rows = doc.querySelectorAll('tr');
@@ -318,11 +356,11 @@
             const teams = [];
             for (let i = 1; i < rows.length; i++) {
                 const cells = rows[i].querySelectorAll('td');
-                if (cells.length >= 4) {
+                if (cells.length >= 4 && cells[0].textContent.trim()) {
                     teams.push({
                         name: cells[0].textContent.trim(),
-                        kills: parseInt(cells[1].textContent.trim()) || 0,
-                        points: parseInt(cells[2].textContent.trim()) || 0,
+                        kills: parseFloat(cells[1].textContent.trim()) || 0,
+                        points: parseFloat(cells[2].textContent.trim()) || 0,
                         rank: parseInt(cells[3].textContent.trim()) || 0
                     });
                 }
@@ -364,7 +402,7 @@
                     <div class="rank ${getRankClass(team.rank).split(' ')[0] || ''}">${getMedal(team.rank)} ${team.rank}</div>
                     <div class="team-name">${team.name}</div>
                     <div class="kills">${team.kills}</div>
-                    <div class="points">${team.points}</div>
+                    <div class="points ${team.points < 0 ? 'negative' : ''}">${team.points > 0 ? '+' : ''}${team.points}</div>
                     <div class="rank">#${team.rank}</div>
                 `;
                 
@@ -399,3 +437,4 @@
     </script>
 </body>
 </html>
+
